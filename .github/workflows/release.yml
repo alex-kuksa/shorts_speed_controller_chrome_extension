@@ -1,0 +1,100 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package Extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate extension files
+        run: |
+          node --check content.js
+          node - <<'NODE'
+          const fs = require("fs");
+          const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
+          const requiredFiles = [
+            "manifest.json",
+            "content.js",
+            ...Object.values(manifest.icons || {}),
+          ];
+
+          for (const file of requiredFiles) {
+            if (!fs.existsSync(file)) {
+              throw new Error(`Missing required package file: ${file}`);
+            }
+          }
+
+          if (manifest.manifest_version !== 3) {
+            throw new Error("manifest_version must be 3");
+          }
+          NODE
+
+      - name: Build ZIP
+        run: |
+          mkdir -p dist
+          zip -r "dist/shorts-speed-controller-${GITHUB_REF_NAME}.zip" \
+            manifest.json \
+            content.js \
+            icons
+          unzip -l "dist/shorts-speed-controller-${GITHUB_REF_NAME}.zip"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shorts-speed-controller-${{ github.ref_name }}
+          path: dist/shorts-speed-controller-${{ github.ref_name }}.zip
+          if-no-files-found: error
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ZIP_PATH="dist/shorts-speed-controller-${GITHUB_REF_NAME}.zip"
+
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" "${ZIP_PATH}" --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" "${ZIP_PATH}" \
+              --title "Shorts Speed Controller ${GITHUB_REF_NAME}" \
+              --notes "Chrome extension package for ${GITHUB_REF_NAME}."
+          fi
+
+  deploy-privacy:
+    name: Deploy Privacy Policy
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
