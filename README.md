@@ -83,6 +83,19 @@ Before the first Pages deploy, enable:
 Settings -> Pages -> Source -> GitHub Actions
 ```
 
+Because releases are triggered from tags, also allow release tags to deploy to
+the `github-pages` environment:
+
+```text
+Settings -> Environments -> github-pages -> Deployment branches and tags
+```
+
+Select either all tags or selected tags with this pattern:
+
+```text
+v*
+```
+
 Privacy Policy URL format:
 
 ```text
