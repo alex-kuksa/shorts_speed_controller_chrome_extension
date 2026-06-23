@@ -106,5 +106,7 @@ https://<username>.github.io/<repo>/privacy/
 
 The extension stores only the selected playback speed in Chrome extension
 storage. It does not collect, transmit, sell, rent, or share personal data.
+The content script is loaded on YouTube pages to support YouTube single-page
+navigation, but it only changes the page while the current URL is a Shorts page.
 
 See `docs/privacy/index.html`.
