@@ -72,10 +72,23 @@ The workflow:
 
 - validates `content.js`;
 - validates `manifest.json` and icon paths;
+- verifies that `manifest.json` version matches the pushed tag;
 - builds a Chrome extension ZIP;
 - uploads the ZIP as a workflow artifact;
 - creates or updates a GitHub Release with the ZIP attached;
+- uploads the ZIP to Chrome Web Store;
+- submits the Chrome Web Store item for review and publishing;
 - deploys the Privacy Policy from `docs/` to GitHub Pages.
+
+Required GitHub Actions secrets:
+
+- `GCP_SERVICE_ACCOUNT_KEY`: JSON key for the Google Cloud service account.
+- `CWS_PUBLISHER_ID`: Chrome Web Store publisher ID.
+- `CWS_ITEM_ID`: Chrome Web Store extension item ID.
+
+The Google Cloud service account must be added to the Chrome Web Store publisher
+account and must be able to generate an OAuth access token for the
+`https://www.googleapis.com/auth/chromewebstore` scope.
 
 Before the first Pages deploy, enable:
 

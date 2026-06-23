@@ -44,6 +44,13 @@ jobs:
           if (manifest.manifest_version !== 3) {
             throw new Error("manifest_version must be 3");
           }
+
+          const tagName = process.env.GITHUB_REF_NAME;
+          const tagVersion = tagName?.startsWith("v") ? tagName.slice(1) : null;
+
+          if (tagVersion && manifest.version !== tagVersion) {
+            throw new Error(`manifest.version (${manifest.version}) must match tag ${tagName}`);
+          }
           NODE
 
       - name: Build ZIP
@@ -75,6 +82,44 @@ jobs:
               --title "Shorts Speed Controller ${GITHUB_REF_NAME}" \
               --notes "Chrome extension package for ${GITHUB_REF_NAME}."
           fi
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+
+      - name: Upload to Chrome Web Store
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          CWS_ITEM_ID: ${{ secrets.CWS_ITEM_ID }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+        run: |
+          set -euo pipefail
+
+          ZIP_PATH="dist/shorts-speed-controller-${GITHUB_REF_NAME}.zip"
+
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "Content-Type: application/zip" \
+            --data-binary @"${ZIP_PATH}" \
+            "https://chromewebstore.googleapis.com/upload/v2/publishers/${CWS_PUBLISHER_ID}/items/${CWS_ITEM_ID}:upload"
+
+      - name: Submit Chrome Web Store item
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          CWS_ITEM_ID: ${{ secrets.CWS_ITEM_ID }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+        run: |
+          set -euo pipefail
+
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"publishType":"DEFAULT_PUBLISH","skipReview":false,"blockOnWarnings":true}' \
+            "https://chromewebstore.googleapis.com/v2/publishers/${CWS_PUBLISHER_ID}/items/${CWS_ITEM_ID}:publish"
 
   deploy-privacy:
     name: Deploy Privacy Policy
